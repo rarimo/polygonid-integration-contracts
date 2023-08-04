@@ -1,10 +1,4 @@
-# Hardhat template 
-
-Template hardhat repository for ad-hoc smart contracts development.
-
-### How to use
-
-The template works out of the box. To clean up the repo, you may need to delete the mock contracts, tests and migration files.
+# PolygonId integration contracts
 
 #### Test
 
@@ -19,6 +13,37 @@ Or to see the coverage, run:
 ```bash
 npm run coverage
 ```
+
+#### Deployment
+
+Before deployment, you need to create an **.env** file following the example from **.env.example**
+
+Next you need to fill in the config file `deploy/data/config.json`
+
+The config has the following structure:
+
+```json
+{
+  "validatorContractInfo": {
+    "validatorAddr": "",
+    "isSigValidator": "true"
+  },
+  "stateContractInfo": {
+    "stateAddr": "0x134B1...07a4",
+    "stateInitParams": {
+      "signer": "0xda323...afa6",
+      "sourceStateContract": "0x134B1...07a4",
+      "chainName": "Sepolia"
+    }
+  },
+  "poseidonFacade": "0x1702a...1AF5"
+}
+```
+
+To deploy new contracts it is enough to leave the fields with addresses empty while filling in the fields with init values.
+If you already have contract addresses, just fill in the corresponding fields. In this configuration, the specified contract addresses will be used during deployment
+
+To deploy, run command `npm run deploy-<network>`, where *network* is the network name from the **hardhat.config.ts** file. The list of available commands and their settings can be found in **package.json** file
 
 #### Local deployment
 
@@ -38,18 +63,3 @@ npm run generate-types
 ```
 
 > See the full list of available commands in the `package.json` file.
-
-### Integrated plugins
-
-- Hardhat official `ethers` + `ethers-v5`
-- [`Typechain`](https://www.npmjs.com/package/@typechain/hardhat)
-- [`hardhat-migrate`](https://www.npmjs.com/package/@dlsl/hardhat-migrate), [`hardhat-gobind`](https://www.npmjs.com/package/@dlsl/hardhat-gobind)
-- [`hardhat-contract-sizer`](https://www.npmjs.com/package/hardhat-contract-sizer)
-- [`hardhat-gas-reporter`](https://www.npmjs.com/package/hardhat-gas-reporter)
-- [`solidity-coverage`](https://www.npmjs.com/package/solidity-coverage)
-
-### Other niceties
-
-- The template comes with presetup `prettier` and `solhint` that lint the project via `husky` before compilation hook.
-- The `.env.example` file is provided to check what is required as ENVs
-- Preinstalled `@openzeppelin/contracts` and `@dlsl/dev-modules`

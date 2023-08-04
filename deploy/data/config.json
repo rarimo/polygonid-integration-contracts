@@ -1,0 +1,15 @@
+{
+  "validatorContractInfo": {
+    "validatorAddr": "",
+    "isSigValidator": "true"
+  },
+  "stateContractInfo": {
+    "stateAddr": "0x134B1...07a4",
+    "stateInitParams": {
+      "signer": "0xda323...afa6",
+      "sourceStateContract": "0x134B1...07a4",
+      "chainName": "Sepolia"
+    }
+  },
+  "poseidonFacade": "0x1702a...1AF5"
+}

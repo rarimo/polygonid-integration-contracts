@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.16;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import "@iden3/contracts/validators/CredentialAtomicQuerySigValidator.sol";
+import "@iden3/contracts/lib/verifierSigWrapper.sol";
 
 contract ERC20Mock is ERC20 {
     uint8 internal _decimals;
