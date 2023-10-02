@@ -1,4 +1,4 @@
-import { Deployer, Logger } from "@dlsl/hardhat-migrate";
+import { Deployer, Logger } from "@solarity/hardhat-migrate";
 import { ethers, artifacts } from "hardhat";
 
 const { poseidonContract } = require("circomlibjs");

@@ -1,4 +1,4 @@
-import { Deployer, Logger } from "@dlsl/hardhat-migrate";
+import { Deployer, Logger } from "@solarity/hardhat-migrate";
 import { artifacts, ethers } from "hardhat";
 import { Config, parseConfig } from "@/deploy/helpers/config_parser";
 import { AGE_VERIFY_REQUEST_ID } from "@/test/helpers/constants";

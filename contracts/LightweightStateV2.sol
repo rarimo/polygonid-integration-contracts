@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.16;
 
-import "@rarimo/evm-bridge/bridge/proxy/UUPSSignableUpgradeable.sol";
-import "@rarimo/evm-bridge/utils/Signers.sol";
+import "@rarimo/evm-bridge-contracts/bridge/proxy/UUPSSignableUpgradeable.sol";
+import "@rarimo/evm-bridge-contracts/utils/Signers.sol";
 
 import "./interfaces/ILightweightStateV2.sol";
 

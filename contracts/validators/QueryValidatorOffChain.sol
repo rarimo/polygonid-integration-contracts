@@ -7,7 +7,7 @@ import "@iden3/contracts/interfaces/IState.sol";
 import "@iden3/contracts/lib/GenesisUtils.sol";
 import "@iden3/contracts/lib/Poseidon.sol";
 
-import "@dlsl/dev-modules/libs/zkp/snarkjs/VerifierHelper.sol";
+import "@solarity/solidity-lib/libs/zkp/snarkjs/VerifierHelper.sol";
 
 import "../interfaces/validators/IOffChainCircuitValidator.sol";
 

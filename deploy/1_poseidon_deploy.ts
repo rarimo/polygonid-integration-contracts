@@ -1,4 +1,4 @@
-import { Deployer } from "@dlsl/hardhat-migrate";
+import { Deployer } from "@solarity/hardhat-migrate";
 import { artifacts } from "hardhat";
 import { ethers } from "hardhat";
 import { deployPoseidons } from "@/deploy/helpers/deploy_helper";
