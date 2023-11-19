@@ -7,4 +7,8 @@ contract LightweightStateV2Mock is LightweightStateV2 {
     function convertPubKeyToAddress(bytes calldata pubKey_) external pure returns (address) {
         return _convertPubKeyToAddress(pubKey_);
     }
+
+    function getGISTData(uint256 gistRoot_) external view returns (GistRootData memory) {
+        return _gistsRootData[gistRoot_];
+    }
 }
