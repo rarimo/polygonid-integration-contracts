@@ -4,11 +4,18 @@ import { ethers, artifacts } from "hardhat";
 const { poseidonContract } = require("circomlibjs");
 
 const ERC1967Proxy = artifacts.require("ERC1967Proxy");
+
 const QueryMTPVerifierOffChain = artifacts.require("QueryMTPVerifierOffChain");
 const QuerySigVerifierOffChain = artifacts.require("QuerySigVerifierOffChain");
 
+const VerifierSigWrapper = artifacts.require("VerifierSigWrapper");
+const VerifierMTPWrapper = artifacts.require("VerifierMTPWrapper");
+
 const QueryMTPValidatorOffChain = artifacts.require("QueryMTPValidatorOffChain");
 const QuerySigValidatorOffChain = artifacts.require("QuerySigValidatorOffChain");
+
+const CredentialAtomicQuerySigValidator = artifacts.require("CredentialAtomicQuerySigValidator");
+const CredentialAtomicQueryMTPValidator = artifacts.require("CredentialAtomicQueryMTPValidator");
 
 import * as dotenv from "dotenv";
 dotenv.config();
@@ -67,6 +74,21 @@ export async function deployMTPValidatorOffChain(
   return queryMTPValidator.address;
 }
 
+export async function deployMTPValidatorOnChain(deployer: Deployer, logger: Logger, stateContractAddr: string) {
+  const queryMTPVerifierOnChain = await deployer.deploy(VerifierMTPWrapper);
+  const queryMTPValidatorOnChainImpl = await deployer.deploy(CredentialAtomicQueryMTPValidator);
+  const queryMTPValidatorOnChainProxy = await deployer.deploy(ERC1967Proxy, queryMTPValidatorOnChainImpl.address, []);
+
+  const queryMTPValidator = await CredentialAtomicQueryMTPValidator.at(queryMTPValidatorOnChainProxy.address);
+
+  logger.logTransaction(
+    await queryMTPValidator.initialize(queryMTPVerifierOnChain.address, stateContractAddr),
+    "Initialize CredentialAtomicQueryMTPValidator contract"
+  );
+
+  return queryMTPValidator.address;
+}
+
 export async function deploySigValidatorOffChain(
   deployer: Deployer,
   logger: Logger,
@@ -84,6 +106,21 @@ export async function deploySigValidatorOffChain(
   logger.logTransaction(
     await querySigValidator.__QueryValidatorOffChain_init(querySigVerifierOffChain.address, stateContractAddr),
     "Initialize QuerySigValidatorOffChain contract"
+  );
+
+  return querySigValidator.address;
+}
+
+export async function deploySigValidatorOnChain(deployer: Deployer, logger: Logger, stateContractAddr: string) {
+  const querySigVerifierOnChain = await deployer.deploy(VerifierSigWrapper);
+  const querySigValidatorOnChainImpl = await deployer.deploy(CredentialAtomicQuerySigValidator);
+  const querySigValidatorOnChainProxy = await deployer.deploy(ERC1967Proxy, querySigValidatorOnChainImpl.address, []);
+
+  const querySigValidator = await CredentialAtomicQuerySigValidator.at(querySigValidatorOnChainProxy.address);
+
+  logger.logTransaction(
+    await querySigValidator.initialize(querySigVerifierOnChain.address, stateContractAddr),
+    "Initialize CredentialAtomicQuerySigValidator contract"
   );
 
   return querySigValidator.address;
