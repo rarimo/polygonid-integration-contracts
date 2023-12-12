@@ -5,7 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import "@iden3/contracts/validators/CredentialAtomicQuerySigValidator.sol";
+import "@iden3/contracts/validators/CredentialAtomicQueryMTPValidator.sol";
+
 import "@iden3/contracts/lib/verifierSigWrapper.sol";
+import "@iden3/contracts/lib/verifierMTPWrapper.sol";
 
 contract ERC20Mock is ERC20 {
     uint8 internal _decimals;

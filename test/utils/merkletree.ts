@@ -3,6 +3,7 @@ import { ethers } from "hardhat";
 import type { BigNumberish } from "ethers";
 import { SignHelper } from "@/test/utils/signature";
 import { StateData, GistRootData } from "@/test/utils/types";
+import { PromiseOrValue } from "@/generated-types/ethers/common";
 
 export class MerkleTreeHelper {
   public tree: MerkleTree;
@@ -21,19 +22,25 @@ export class MerkleTreeHelper {
     );
   }
 
-  public encodeLeaf(
+  public encodeGISTLeaf(
     sourceStateContract: string,
-    prevState: BigNumberish,
-    prevGist: BigNumberish,
-    stateData: StateData,
+    prevGist: PromiseOrValue<BigNumberish>,
     gistRootData: GistRootData
   ) {
-    const stateDataBytes: string = this.getStateDataBytes(stateData);
     const gistRootDataBytes: string = this.getGistRootDataBytes(gistRootData);
 
     return ethers.utils.solidityKeccak256(
-      ["address", "bytes", "bytes", "uint256", "uint256"],
-      [sourceStateContract, stateDataBytes, gistRootDataBytes, prevState, prevGist]
+      ["address", "bytes", "uint256"],
+      [sourceStateContract, gistRootDataBytes, prevGist]
+    );
+  }
+
+  public encodeStateLeaf(sourceStateContract: string, prevState: PromiseOrValue<BigNumberish>, stateData: StateData) {
+    const stateDataBytes: string = this.getStateDataBytes(stateData);
+
+    return ethers.utils.solidityKeccak256(
+      ["address", "bytes", "uint256"],
+      [sourceStateContract, stateDataBytes, prevState]
     );
   }
 
@@ -63,26 +70,15 @@ export class MerkleTreeHelper {
   }
 
   private getStateDataBytes(stateData: StateData): string {
-    const typesArr: string[] = ["uint256", "uint256", "uint256", "uint256", "uint256"];
-    const values: any[] = [
-      stateData.id,
-      stateData.state,
-      stateData.replacedByState,
-      stateData.createdAtTimestamp,
-      stateData.createdAtBlock,
-    ];
+    const typesArr: string[] = ["uint256", "uint256", "uint256", "uint256"];
+    const values: any[] = [stateData.id, stateData.state, stateData.createdAtTimestamp, stateData.createdAtBlock];
 
     return ethers.utils.solidityPack(typesArr, values);
   }
 
   private getGistRootDataBytes(gistRootData: GistRootData): string {
-    const typesArr: string[] = ["uint256", "uint256", "uint256", "uint256"];
-    const values: any[] = [
-      gistRootData.root,
-      gistRootData.replacedByRoot,
-      gistRootData.createdAtTimestamp,
-      gistRootData.createdAtBlock,
-    ];
+    const typesArr: string[] = ["uint256", "uint256", "uint256"];
+    const values: any[] = [gistRootData.root, gistRootData.createdAtTimestamp, gistRootData.createdAtBlock];
 
     return ethers.utils.solidityPack(typesArr, values);
   }

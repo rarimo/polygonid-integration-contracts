@@ -207,231 +207,507 @@ describe("LightweightStateV2", () => {
     });
   });
 
-  describe("signedTransitState", () => {
-    let stateData: ILightweightStateV2.StateDataStruct;
-    let gistRootData: ILightweightStateV2.GistRootDataStruct;
-
-    beforeEach("setup", async () => {
-      stateData = {
-        id: 1,
-        state: 123,
-        replacedByState: 0,
-        createdAtTimestamp: 1000,
-        createdAtBlock: 100,
-      };
-
-      gistRootData = {
+  describe("signedTransitGISTData", () => {
+    it("should correctly transit last GIST data", async () => {
+      const gistRootData: ILightweightStateV2.GistRootDataStruct = {
         root: 333,
         replacedByRoot: 0,
         createdAtTimestamp: 1000,
         createdAtBlock: 100,
       };
-    });
 
-    it("should correctly transit signed state", async () => {
-      const leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 0, 0, stateData, gistRootData);
+      const leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, 0, gistRootData);
       const proof = merkleHelper.getProof(leaf);
 
-      const tx = await lightweightStateV2.signedTransitState(0, 0, stateData, gistRootData, proof);
+      const tx = await lightweightStateV2.signedTransitGISTData(0, gistRootData, proof);
 
-      compareStateInfo(await lightweightStateV2.getStateInfoById(1), {
-        ...stateData,
-        replacedAtTimestamp: 0,
-        replacedAtBlock: 0,
-      });
       compareGistRootInfo(await lightweightStateV2.getCurrentGISTRootInfo(), {
         ...gistRootData,
         replacedAtTimestamp: 0,
         replacedAtBlock: 0,
       });
 
-      expect(tx)
-        .to.emit(lightweightStateV2, "SignedStateTransited")
-        .withArgs(gistRootData.root, stateData.id, stateData.state, 0, 0);
-    });
-
-    it("should correctly update last identity state", async () => {
-      let leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 0, 0, stateData, gistRootData);
-      let proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(0, 0, stateData, gistRootData, proof);
-
-      expect(await lightweightStateV2.getIdentityLastState(stateData.id)).to.be.eq(stateData.state);
       expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData.root);
 
-      const stateData1 = { ...stateData, state: 125, createdAtTimestamp: 1200, createdAtBlock: 120 };
-      const gistRootData1 = { ...gistRootData, root: 335, createdAtTimestamp: 1200, createdAtBlock: 120 };
-
-      leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 124, 334, stateData1, gistRootData1);
-      proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(124, 334, stateData1, gistRootData1, proof);
-
-      expect(await lightweightStateV2.getIdentityLastState(stateData.id)).to.be.eq(stateData1.state);
-      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData1.root);
-
-      const stateData2 = {
-        ...stateData,
-        state: 124,
-        replacedByState: 125,
-        createdAtTimestamp: 1100,
-        createdAtBlock: 110,
-      };
-      const gistRootData2 = { ...gistRootData, root: 334, createdAtTimestamp: 1100, createdAtBlock: 110 };
-
-      leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 123, 333, stateData2, gistRootData2);
-      proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(123, 333, stateData2, gistRootData2, proof);
-
-      expect(await lightweightStateV2.getIdentityLastState(stateData.id)).to.be.eq(stateData1.state);
-      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData1.root);
+      expect(tx).to.emit(lightweightStateV2, "SignGISTDataTransited").withArgs(gistRootData.root, 0);
     });
 
-    it("should correctly transit signed state with the same gist root info", async () => {
-      let leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 0, 0, stateData, gistRootData);
-      let proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(0, 0, stateData, gistRootData, proof);
-
-      const stateData1 = { ...stateData, id: 2, state: 223, createdAtTimestamp: 800, createdAtBlock: 80 };
-
-      leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 0, 0, stateData1, gistRootData);
-      proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(0, 0, stateData1, gistRootData, proof);
-
-      expect(await lightweightStateV2.getIdentityLastState(stateData.id)).to.be.eq(stateData.state);
-      expect(await lightweightStateV2.getIdentityLastState(stateData1.id)).to.be.eq(stateData1.state);
-      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData.root);
-    });
-
-    it("should get exception if try to update already stored states", async () => {
-      const leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 0, 0, stateData, gistRootData);
-      const proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(0, 0, stateData, gistRootData, proof);
-
-      const reason = "LightweightStateV2: unable to update already stored states";
-
-      await expect(lightweightStateV2.signedTransitState(0, 0, stateData, gistRootData, proof)).to.be.rejectedWith(
-        reason
-      );
-    });
-
-    it("should get exception if try to update already stored gist root", async () => {
-      let leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 0, 0, stateData, gistRootData);
-      let proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(0, 0, stateData, gistRootData, proof);
-
-      const stateData1 = { ...stateData, id: 2, state: 124 };
-      const gistRootData1 = { ...gistRootData, root: 444, createdAtTimestamp: 1050, createdAtBlock: 105 };
-
-      const leaf1 = merkleHelper.encodeLeaf(
-        sourceStateContractAddr,
-        0,
-        await gistRootData.root,
-        stateData1,
-        gistRootData1
-      );
-      const proof1 = merkleHelper.getProof(leaf1);
-
-      await lightweightStateV2.signedTransitState(0, gistRootData.root, stateData1, gistRootData1, proof1);
-
-      const reason = "LightweightStateV2: unable to update already stored gist data";
-
-      const stateData2 = { ...stateData, id: 1, state: 200 };
-
-      leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, await stateData.state, 0, stateData2, gistRootData);
-      proof = merkleHelper.getProof(leaf);
-
-      await expect(
-        lightweightStateV2.signedTransitState(stateData.state, 0, stateData2, gistRootData, proof)
-      ).to.be.rejectedWith(reason);
-    });
-  });
-
-  describe("getters", () => {
-    let stateData: ILightweightStateV2.StateDataStruct;
-    let gistRootData: ILightweightStateV2.GistRootDataStruct;
-
-    beforeEach("setup", async () => {
-      stateData = {
-        id: 1,
-        state: 123,
-        replacedByState: 0,
-        createdAtTimestamp: 1000,
-        createdAtBlock: 100,
-      };
-
-      gistRootData = {
-        root: 333,
+    it("should correctly transit GIST data several times one by one", async () => {
+      const gistRootData1: ILightweightStateV2.GistRootDataStruct = {
+        root: 111,
         replacedByRoot: 0,
         createdAtTimestamp: 1000,
         createdAtBlock: 100,
       };
-    });
 
-    it("getters should return correct data", async () => {
-      let leaf = merkleHelper.encodeLeaf(sourceStateContractAddr, 0, 0, stateData, gistRootData);
+      let leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, 0, gistRootData1);
       let proof = merkleHelper.getProof(leaf);
 
-      await lightweightStateV2.signedTransitState(0, 0, stateData, gistRootData, proof);
-
-      const stateData1 = { ...stateData, state: 124, createdAtTimestamp: 1200, createdAtBlock: 120 };
-      const gistRootData1 = { ...gistRootData, root: 334, createdAtTimestamp: 1200, createdAtBlock: 120 };
-
-      leaf = merkleHelper.encodeLeaf(
-        sourceStateContractAddr,
-        await stateData.state,
-        await gistRootData.root,
-        stateData1,
-        gistRootData1
-      );
-      proof = merkleHelper.getProof(leaf);
-
-      await lightweightStateV2.signedTransitState(stateData.state, gistRootData.root, stateData1, gistRootData1, proof);
-
-      const expectedStateInfo: IState.StateInfoStruct = {
-        ...stateData,
-        replacedByState: stateData1.state,
-        replacedAtTimestamp: stateData1.createdAtTimestamp,
-        replacedAtBlock: stateData1.createdAtBlock,
-      };
-      const expectedGistRootInfo: IState.GistRootInfoStruct = {
-        ...gistRootData,
-        replacedByRoot: gistRootData1.root,
-        replacedAtTimestamp: gistRootData1.createdAtTimestamp,
-        replacedAtBlock: gistRootData1.createdAtBlock,
-      };
-
-      compareStateInfo(await lightweightStateV2.getStateInfoById(stateData.id), {
-        ...stateData1,
-        replacedAtTimestamp: 0,
-        replacedAtBlock: 0,
-      });
-      compareStateInfo(
-        await lightweightStateV2.getStateInfoByIdAndState(stateData.id, stateData.state),
-        expectedStateInfo
-      );
-
-      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData1.root);
+      // First GIST data transition
+      await lightweightStateV2.signedTransitGISTData(0, gistRootData1, proof);
 
       compareGistRootInfo(await lightweightStateV2.getCurrentGISTRootInfo(), {
         ...gistRootData1,
         replacedAtTimestamp: 0,
         replacedAtBlock: 0,
       });
-      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData.root), expectedGistRootInfo);
 
-      expect(await lightweightStateV2.idExists(stateData.id)).to.be.eq(true);
+      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData1.root);
+
+      const gistRootData2: ILightweightStateV2.GistRootDataStruct = {
+        root: 222,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1200,
+        createdAtBlock: 120,
+      };
+
+      leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, gistRootData1.root, gistRootData2);
+      proof = merkleHelper.getProof(leaf);
+
+      // Second GIST data transition
+      await lightweightStateV2.signedTransitGISTData(gistRootData1.root, gistRootData2, proof);
+
+      compareGistRootInfo(await lightweightStateV2.getCurrentGISTRootInfo(), {
+        ...gistRootData2,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData2.root);
+
+      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData1.root), {
+        ...gistRootData1,
+        replacedByRoot: gistRootData2.root,
+        replacedAtTimestamp: gistRootData2.createdAtTimestamp,
+        replacedAtBlock: gistRootData2.createdAtBlock,
+      });
+
+      const gistRootData3: ILightweightStateV2.GistRootDataStruct = {
+        root: 333,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1300,
+        createdAtBlock: 130,
+      };
+
+      leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, gistRootData2.root, gistRootData3);
+      proof = merkleHelper.getProof(leaf);
+
+      // Third GIST data transition
+      await lightweightStateV2.signedTransitGISTData(gistRootData2.root, gistRootData3, proof);
+
+      compareGistRootInfo(await lightweightStateV2.getCurrentGISTRootInfo(), {
+        ...gistRootData3,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData3.root);
+
+      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData2.root), {
+        ...gistRootData2,
+        replacedByRoot: gistRootData3.root,
+        replacedAtTimestamp: gistRootData3.createdAtTimestamp,
+        replacedAtBlock: gistRootData3.createdAtBlock,
+      });
+    });
+
+    it("should correctly transit GIST data for not latest GIST", async () => {
+      const gistRootData1: ILightweightStateV2.GistRootDataStruct = {
+        root: 333,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1300,
+        createdAtBlock: 130,
+      };
+      const gistRootData2: ILightweightStateV2.GistRootDataStruct = {
+        root: 222,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1200,
+        createdAtBlock: 120,
+      };
+      const gistRootData3: ILightweightStateV2.GistRootDataStruct = {
+        root: 111,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+
+      let leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, gistRootData2.root, gistRootData1);
+      let proof = merkleHelper.getProof(leaf);
+
+      // First GIST data transition
+      await lightweightStateV2.signedTransitGISTData(gistRootData2.root, gistRootData1, proof);
+
+      leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, gistRootData2.root, gistRootData1);
+      proof = merkleHelper.getProof(leaf);
+
+      compareGistRootInfo(await lightweightStateV2.getCurrentGISTRootInfo(), {
+        ...gistRootData1,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData2.root), {
+        root: 0,
+        replacedByRoot: 0,
+        createdAtTimestamp: 0,
+        createdAtBlock: 0,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData1.root);
+      expect((await lightweightStateV2.getGISTData(gistRootData2.root)).replacedByRoot).to.be.eq(gistRootData1.root);
+
+      // Second GIST data transition
+      leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, 0, gistRootData3);
+      proof = merkleHelper.getProof(leaf);
+
+      await lightweightStateV2.signedTransitGISTData(0, gistRootData3, proof);
+
+      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData3.root), {
+        ...gistRootData3,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData1.root);
+
+      // Third GIST data transition
+      leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, gistRootData3.root, gistRootData2);
+      proof = merkleHelper.getProof(leaf);
+
+      await lightweightStateV2.signedTransitGISTData(gistRootData3.root, gistRootData2, proof);
+
+      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData2.root), {
+        ...gistRootData2,
+        replacedByRoot: gistRootData1.root,
+        replacedAtTimestamp: gistRootData1.createdAtTimestamp,
+        replacedAtBlock: gistRootData1.createdAtBlock,
+      });
+      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData3.root), {
+        ...gistRootData3,
+        replacedByRoot: gistRootData2.root,
+        replacedAtTimestamp: gistRootData2.createdAtTimestamp,
+        replacedAtBlock: gistRootData2.createdAtBlock,
+      });
+
+      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData1.root);
+    });
+
+    it("should get exception if try to update existing GIST data", async () => {
+      const gistRootData: ILightweightStateV2.GistRootDataStruct = {
+        root: 111,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+
+      const leaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, 0, gistRootData);
+      const proof = merkleHelper.getProof(leaf);
+
+      await lightweightStateV2.signedTransitGISTData(0, gistRootData, proof);
+
+      const reason = "LightweightStateV2: unable to update already stored gist data";
+
+      await expect(lightweightStateV2.signedTransitGISTData(0, gistRootData, proof)).to.be.rejectedWith(reason);
+    });
+  });
+
+  describe("signedTransitStateData", () => {
+    it("should correctly transit state data", async () => {
+      const stateData: ILightweightStateV2.StateDataStruct = {
+        id: 1,
+        state: 111,
+        replacedByState: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+
+      const leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, 0, stateData);
+      const proof = merkleHelper.getProof(leaf);
+
+      const tx = await lightweightStateV2.signedTransitStateData(0, stateData, proof);
+
+      compareStateInfo(await lightweightStateV2.getStateInfoById(stateData.id), {
+        ...stateData,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      expect(await lightweightStateV2.getIdentityLastState(stateData.id)).to.be.eq(stateData.state);
+
+      expect(tx).to.emit(lightweightStateV2, "SignStateDataTransited").withArgs(stateData.id, stateData.state, 0);
+    });
+
+    it("should correctly transit state data several times one by one", async () => {
+      const userId = 1;
+
+      const stateData1: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 111,
+        replacedByState: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+
+      let leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, 0, stateData1);
+      let proof = merkleHelper.getProof(leaf);
+
+      // First state transition
+      await lightweightStateV2.signedTransitStateData(0, stateData1, proof);
+
+      const stateData2: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 222,
+        replacedByState: 0,
+        createdAtTimestamp: 1200,
+        createdAtBlock: 120,
+      };
+
+      leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, stateData1.state, stateData2);
+      proof = merkleHelper.getProof(leaf);
+
+      // Second state transition
+      await lightweightStateV2.signedTransitStateData(stateData1.state, stateData2, proof);
+
+      compareStateInfo(await lightweightStateV2.getStateInfoById(userId), {
+        ...stateData2,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      compareStateInfo(await lightweightStateV2.getStateInfoByIdAndState(userId, stateData1.state), {
+        ...stateData1,
+        replacedByState: stateData2.state,
+        replacedAtTimestamp: stateData2.createdAtTimestamp,
+        replacedAtBlock: stateData2.createdAtBlock,
+      });
+
+      expect(await lightweightStateV2.getIdentityLastState(userId)).to.be.eq(stateData2.state);
+
+      const stateData3: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 333,
+        replacedByState: 0,
+        createdAtTimestamp: 1300,
+        createdAtBlock: 130,
+      };
+
+      leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, stateData2.state, stateData3);
+      proof = merkleHelper.getProof(leaf);
+
+      // Third state transition
+      await lightweightStateV2.signedTransitStateData(stateData2.state, stateData3, proof);
+
+      compareStateInfo(await lightweightStateV2.getStateInfoById(userId), {
+        ...stateData3,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      compareStateInfo(await lightweightStateV2.getStateInfoByIdAndState(userId, stateData2.state), {
+        ...stateData2,
+        replacedByState: stateData3.state,
+        replacedAtTimestamp: stateData3.createdAtTimestamp,
+        replacedAtBlock: stateData3.createdAtBlock,
+      });
+
+      expect(await lightweightStateV2.getIdentityLastState(userId)).to.be.eq(stateData3.state);
+    });
+
+    it("should correctly transit state data for not latest user state", async () => {
+      const userId = 1;
+
+      const stateData1: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 111,
+        replacedByState: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+      const stateData2: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 222,
+        replacedByState: 0,
+        createdAtTimestamp: 1200,
+        createdAtBlock: 120,
+      };
+      const stateData3: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 333,
+        replacedByState: 0,
+        createdAtTimestamp: 1300,
+        createdAtBlock: 130,
+      };
+
+      // Third state transition
+      let leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, stateData2.state, stateData3);
+      let proof = merkleHelper.getProof(leaf);
+
+      await lightweightStateV2.signedTransitStateData(stateData2.state, stateData3, proof);
+
+      compareStateInfo(await lightweightStateV2.getStateInfoById(userId), {
+        ...stateData3,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      compareStateInfo(await lightweightStateV2.getStateInfoByIdAndState(userId, stateData2.state), {
+        id: 0,
+        state: 0,
+        replacedByState: 0,
+        createdAtTimestamp: 0,
+        createdAtBlock: 0,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      expect(await lightweightStateV2.getIdentityLastState(userId)).to.be.eq(stateData3.state);
+
+      // First state transition
+      leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, 0, stateData1);
+      proof = merkleHelper.getProof(leaf);
+
+      await lightweightStateV2.signedTransitStateData(0, stateData1, proof);
+
+      compareStateInfo(await lightweightStateV2.getStateInfoByIdAndState(userId, stateData1.state), {
+        ...stateData1,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+
+      expect(await lightweightStateV2.getIdentityLastState(userId)).to.be.eq(stateData3.state);
+
+      // Second state transition
+      leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, stateData1.state, stateData2);
+      proof = merkleHelper.getProof(leaf);
+
+      await lightweightStateV2.signedTransitStateData(stateData1.state, stateData2, proof);
+
+      compareStateInfo(await lightweightStateV2.getStateInfoByIdAndState(userId, stateData2.state), {
+        ...stateData2,
+        replacedByState: stateData3.state,
+        replacedAtTimestamp: stateData3.createdAtTimestamp,
+        replacedAtBlock: stateData3.createdAtBlock,
+      });
+
+      compareStateInfo(await lightweightStateV2.getStateInfoByIdAndState(userId, stateData1.state), {
+        ...stateData1,
+        replacedByState: stateData2.state,
+        replacedAtTimestamp: stateData2.createdAtTimestamp,
+        replacedAtBlock: stateData2.createdAtBlock,
+      });
+
+      expect(await lightweightStateV2.getIdentityLastState(userId)).to.be.eq(stateData3.state);
+    });
+
+    it("should get exception if try to update existing state data", async () => {
+      const stateData: ILightweightStateV2.StateDataStruct = {
+        id: 1,
+        state: 111,
+        replacedByState: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+
+      const leaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, 0, stateData);
+      const proof = merkleHelper.getProof(leaf);
+
+      await lightweightStateV2.signedTransitStateData(0, stateData, proof);
+
+      const reason = "LightweightStateV2: unable to update already stored states";
+
+      await expect(lightweightStateV2.signedTransitStateData(0, stateData, proof)).to.be.revertedWith(reason);
+    });
+  });
+
+  describe("getters", () => {
+    it("getters should return correct data", async () => {
+      const userId = 1;
+
+      const stateData1: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 111,
+        replacedByState: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+      const stateData2: ILightweightStateV2.StateDataStruct = {
+        id: userId,
+        state: 222,
+        replacedByState: 0,
+        createdAtTimestamp: 1200,
+        createdAtBlock: 120,
+      };
+
+      const gistRootData1: ILightweightStateV2.GistRootDataStruct = {
+        root: 111,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1000,
+        createdAtBlock: 100,
+      };
+      const gistRootData2: ILightweightStateV2.GistRootDataStruct = {
+        root: 222,
+        replacedByRoot: 0,
+        createdAtTimestamp: 1200,
+        createdAtBlock: 120,
+      };
+
+      // State transitions
+      let stateLeaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, 0, stateData1);
+      let stateProof = merkleHelper.getProof(stateLeaf);
+
+      await lightweightStateV2.signedTransitStateData(0, stateData1, stateProof);
+
+      stateLeaf = merkleHelper.encodeStateLeaf(sourceStateContractAddr, stateData1.state, stateData2);
+      stateProof = merkleHelper.getProof(stateLeaf);
+
+      await lightweightStateV2.signedTransitStateData(stateData1.state, stateData2, stateProof);
+
+      // GIST data transitions
+      let gistLeaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, 0, gistRootData1);
+      let gistDataProof = merkleHelper.getProof(gistLeaf);
+
+      await lightweightStateV2.signedTransitGISTData(0, gistRootData1, gistDataProof);
+
+      gistLeaf = merkleHelper.encodeGISTLeaf(sourceStateContractAddr, gistRootData1.root, gistRootData2);
+      gistDataProof = merkleHelper.getProof(gistLeaf);
+
+      await lightweightStateV2.signedTransitGISTData(gistRootData1.root, gistRootData2, gistDataProof);
+
+      // Getters calls
+      compareStateInfo(await lightweightStateV2.getStateInfoById(userId), {
+        ...stateData2,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+      compareStateInfo(await lightweightStateV2.getStateInfoByIdAndState(userId, stateData1.state), {
+        ...stateData1,
+        replacedByState: stateData2.state,
+        replacedAtTimestamp: stateData2.createdAtTimestamp,
+        replacedAtBlock: stateData2.createdAtBlock,
+      });
+
+      expect(await lightweightStateV2.getGISTRoot()).to.be.eq(gistRootData2.root);
+
+      compareGistRootInfo(await lightweightStateV2.getCurrentGISTRootInfo(), {
+        ...gistRootData2,
+        replacedAtTimestamp: 0,
+        replacedAtBlock: 0,
+      });
+      compareGistRootInfo(await lightweightStateV2.getGISTRootInfo(gistRootData1.root), {
+        ...gistRootData1,
+        replacedByRoot: gistRootData2.root,
+        replacedAtTimestamp: gistRootData2.createdAtTimestamp,
+        replacedAtBlock: gistRootData2.createdAtBlock,
+      });
+
+      expect(await lightweightStateV2.idExists(userId)).to.be.eq(true);
       expect(await lightweightStateV2.idExists(2)).to.be.eq(false);
 
-      expect(await lightweightStateV2.stateExists(stateData.id, stateData.state)).to.be.eq(true);
-      expect(await lightweightStateV2.stateExists(stateData.id, 200)).to.be.eq(false);
+      expect(await lightweightStateV2.stateExists(userId, stateData1.state)).to.be.eq(true);
+      expect(await lightweightStateV2.stateExists(userId, 200)).to.be.eq(false);
 
-      expect(await lightweightStateV2.getIdentityLastState(stateData.id)).to.be.eq(stateData1.state);
+      expect(await lightweightStateV2.getIdentityLastState(userId)).to.be.eq(stateData2.state);
       expect(await lightweightStateV2.getIdentityLastState(2)).to.be.eq(0);
     });
   });

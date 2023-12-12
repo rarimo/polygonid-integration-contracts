@@ -4,8 +4,8 @@ import { Config, parseConfig } from "@/deploy/helpers/config_parser";
 import { AGE_VERIFY_REQUEST_ID } from "@/test/helpers/constants";
 
 const QueryVerifier = artifacts.require("QueryVerifier");
-const QueryMTPValidatorOffChain = artifacts.require("QueryMTPValidatorOffChain");
-const QuerySigValidatorOffChain = artifacts.require("QuerySigValidatorOffChain");
+const CredentialAtomicQuerySigValidator = artifacts.require("CredentialAtomicQuerySigValidator");
+const CredentialAtomicQueryMTPValidator = artifacts.require("CredentialAtomicQueryMTPValidator");
 
 const Operators = {
   NOOP: 0, // No operation, skip query verification in circuit
@@ -23,9 +23,9 @@ export = async (deployer: Deployer, logger: Logger) => {
   let validator;
 
   if (config.validatorContractInfo.isSigValidator) {
-    validator = await QuerySigValidatorOffChain.deployed();
+    validator = await CredentialAtomicQuerySigValidator.deployed();
   } else {
-    validator = await QueryMTPValidatorOffChain.deployed();
+    validator = await CredentialAtomicQueryMTPValidator.deployed();
   }
 
   const circuitId = await validator.getCircuitId();

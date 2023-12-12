@@ -9,8 +9,8 @@ const PoseidonFacade = artifacts.require("PoseidonFacade");
 const LightweightStateV2 = artifacts.require("LightweightStateV2");
 const ERC1967Proxy = artifacts.require("ERC1967Proxy");
 
-const QueryMTPValidatorOffChain = artifacts.require("QueryMTPValidatorOffChain");
-const QuerySigValidatorOffChain = artifacts.require("QuerySigValidatorOffChain");
+const CredentialAtomicQuerySigValidator = artifacts.require("CredentialAtomicQuerySigValidator");
+const CredentialAtomicQueryMTPValidator = artifacts.require("CredentialAtomicQueryMTPValidator");
 
 export = async (deployer: Deployer, logger: Logger) => {
   const config: Config = parseConfig();
@@ -39,9 +39,9 @@ export = async (deployer: Deployer, logger: Logger) => {
   let validatorsInfo;
 
   if (config.validatorContractInfo.isSigValidator) {
-    validatorsInfo = ["QuerySigValidatorOffChain", (await QuerySigValidatorOffChain.deployed()).address];
+    validatorsInfo = ["QuerySigValidatorOnChain", (await CredentialAtomicQuerySigValidator.deployed()).address];
   } else {
-    validatorsInfo = ["QueryMTPValidatorOffChain", (await QueryMTPValidatorOffChain.deployed()).address];
+    validatorsInfo = ["QueryMTPValidatorOnChain", (await CredentialAtomicQueryMTPValidator.deployed()).address];
   }
 
   logger.logContracts(

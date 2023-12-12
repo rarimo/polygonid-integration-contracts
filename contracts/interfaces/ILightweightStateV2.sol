@@ -63,19 +63,22 @@ interface ILightweightStateV2 is IState {
 
     /**
      * @notice Event that emitted during the transition of a signed state
-     * @param newGistRoot the new GIST root
      * @param identityId the identifier of the identity for which the state was transited
      * @param newIdentityState the new identity state
      * @param prevIdentityState the previous identity state
-     * @param prevGistRoot the previous GIST root
      */
-    event SignedStateTransited(
-        uint256 newGistRoot,
+    event SignStateDataTransited(
         uint256 identityId,
         uint256 newIdentityState,
-        uint256 prevIdentityState,
-        uint256 prevGistRoot
+        uint256 prevIdentityState
     );
+
+    /**
+     * @notice Event that emitted during the transition of a GIST data
+     * @param newGistRoot the new GIST root
+     * @param prevGistRoot the previous GIST root
+     */
+    event SignGISTDataTransited(uint256 newGistRoot, uint256 prevGistRoot);
 
     /**
      * @notice Function for changing source state contract with signature from Rarimo validators
@@ -95,18 +98,26 @@ interface ILightweightStateV2 is IState {
     function changeSigner(bytes calldata newSignerPubKey_, bytes calldata signature_) external;
 
     /**
-     * @notice Function for transiting information about a specific identity's state from the Polygon network
-     * @param prevState_ the previous identity state from the one whose information is passed on
+     * @notice Function for transiting information about a specific GIST from the Polygon network
      * @param prevGist_ the previous GIST root from the one whose information is passed on
-     * @param stateData_ the information about the state to be saved
-     * @param gistData_ the information about the GSIT to be saved
+     * @param gistData_ the information about the GIST to be saved
      * @param proof_ the proof of entry of the relevant leaf into Merkle Tree together with signature from Rarimo validators
      */
-    function signedTransitState(
-        uint256 prevState_,
+    function signedTransitGISTData(
         uint256 prevGist_,
-        StateData calldata stateData_,
         GistRootData calldata gistData_,
+        bytes calldata proof_
+    ) external;
+
+    /**
+     * @notice Function for transiting information about a specific identity's state from the Polygon network
+     * @param prevState_ the previous identity state from the one whose information is passed on
+     * @param stateData_ the information about the state to be saved
+     * @param proof_ the proof of entry of the relevant leaf into Merkle Tree together with signature from Rarimo validators
+     */
+    function signedTransitStateData(
+        uint256 prevState_,
+        StateData calldata stateData_,
         bytes calldata proof_
     ) external;
 
