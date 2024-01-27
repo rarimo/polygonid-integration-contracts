@@ -52,14 +52,39 @@ contract LightweightStateV2 is ILightweightStateV2, UUPSSignableUpgradeable, Sig
         sourceStateContract = newSourceStateContract_;
     }
 
-    function signedTransitState(
-        uint256 prevState_,
+    function signedTransitGISTData(
         uint256 prevGist_,
-        StateData calldata stateData_,
         GistRootData calldata gistData_,
         bytes calldata proof_
     ) external override {
-        _checkMerkleSignature(_getSignHash(stateData_, gistData_, prevState_, prevGist_), proof_);
+        _checkMerkleSignature(_getGISTSignHash(gistData_, prevGist_), proof_);
+
+        require(
+            _gistsRootData[gistData_.root].createdAtTimestamp == 0,
+            "LightweightStateV2: unable to update already stored gist data"
+        );
+
+        if (gistData_.createdAtTimestamp > _gistsRootData[_currentGistRoot].createdAtTimestamp) {
+            _currentGistRoot = gistData_.root;
+        }
+
+        GistRootData storage _newGistRootData = _gistsRootData[gistData_.root];
+
+        _newGistRootData.root = gistData_.root;
+        _newGistRootData.createdAtTimestamp = gistData_.createdAtTimestamp;
+        _newGistRootData.createdAtBlock = gistData_.createdAtBlock;
+
+        _gistsRootData[prevGist_].replacedByRoot = gistData_.root;
+
+        emit SignGISTDataTransited(gistData_.root, prevGist_);
+    }
+
+    function signedTransitStateData(
+        uint256 prevState_,
+        StateData calldata stateData_,
+        bytes calldata proof_
+    ) external override {
+        _checkMerkleSignature(_getStateSignHash(stateData_, prevState_), proof_);
 
         IdentityInfo storage _identityInfo = _identitiesInfo[stateData_.id];
 
@@ -72,32 +97,16 @@ contract LightweightStateV2 is ILightweightStateV2, UUPSSignableUpgradeable, Sig
             _identityInfo.lastState = stateData_.state;
         }
 
-        _identityInfo.statesData[stateData_.state] = stateData_;
+        StateData storage _newStateData = _identityInfo.statesData[stateData_.state];
+
+        _newStateData.id = stateData_.id;
+        _newStateData.state = stateData_.state;
+        _newStateData.createdAtTimestamp = stateData_.createdAtTimestamp;
+        _newStateData.createdAtBlock = stateData_.createdAtBlock;
+
         _identityInfo.statesData[prevState_].replacedByState = stateData_.state;
 
-        if (_currentGistRoot != gistData_.root) {
-            require(
-                _gistsRootData[gistData_.root].createdAtTimestamp == 0,
-                "LightweightStateV2: unable to update already stored gist data"
-            );
-
-            if (
-                gistData_.createdAtTimestamp > _gistsRootData[_currentGistRoot].createdAtTimestamp
-            ) {
-                _currentGistRoot = gistData_.root;
-            }
-
-            _gistsRootData[gistData_.root] = gistData_;
-            _gistsRootData[prevGist_].replacedByRoot = gistData_.root;
-        }
-
-        emit SignedStateTransited(
-            gistData_.root,
-            stateData_.id,
-            stateData_.state,
-            prevState_,
-            prevGist_
-        );
+        emit SignStateDataTransited(stateData_.id, stateData_.state, prevState_);
     }
 
     function getStateInfoById(
@@ -162,18 +171,17 @@ contract LightweightStateV2 is ILightweightStateV2, UUPSSignableUpgradeable, Sig
     function _getStateInfo(
         uint256 identityId_,
         uint256 state_
-    ) internal view returns (StateInfo memory) {
+    ) internal view returns (StateInfo memory stateInfo_) {
         IdentityInfo storage _identityInfo = _identitiesInfo[identityId_];
-
-        bool isLastState_ = _identityInfo.lastState == state_;
-
         StateData memory stateData_ = _identityInfo.statesData[state_];
-        StateData storage _replacedStateData = _identityInfo.statesData[
-            stateData_.replacedByState
-        ];
 
-        return
-            StateInfo({
+        if (stateData_.id != 0) {
+            StateData storage _replacedStateData = _identityInfo.statesData[
+                stateData_.replacedByState
+            ];
+            bool isLastState_ = _identityInfo.lastState == state_;
+
+            stateInfo_ = StateInfo({
                 id: stateData_.id,
                 state: stateData_.state,
                 replacedByState: stateData_.replacedByState,
@@ -182,16 +190,19 @@ contract LightweightStateV2 is ILightweightStateV2, UUPSSignableUpgradeable, Sig
                 createdAtBlock: stateData_.createdAtBlock,
                 replacedAtBlock: isLastState_ ? 0 : _replacedStateData.createdAtBlock
             });
+        }
     }
 
-    function _getGISTRootInfo(uint256 root_) internal view returns (GistRootInfo memory) {
-        bool isCurrentRoot_ = root_ == _currentGistRoot;
-
+    function _getGISTRootInfo(
+        uint256 root_
+    ) internal view returns (GistRootInfo memory gistRootInfo_) {
         GistRootData memory rootData_ = _gistsRootData[root_];
-        GistRootData storage _replacedRootData = _gistsRootData[rootData_.replacedByRoot];
 
-        return
-            GistRootInfo({
+        if (rootData_.root != 0) {
+            GistRootData storage _replacedRootData = _gistsRootData[rootData_.replacedByRoot];
+            bool isCurrentRoot_ = root_ == _currentGistRoot;
+
+            gistRootInfo_ = GistRootInfo({
                 root: rootData_.root,
                 replacedByRoot: rootData_.replacedByRoot,
                 createdAtTimestamp: rootData_.createdAtTimestamp,
@@ -199,46 +210,39 @@ contract LightweightStateV2 is ILightweightStateV2, UUPSSignableUpgradeable, Sig
                 createdAtBlock: rootData_.createdAtBlock,
                 replacedAtBlock: isCurrentRoot_ ? 0 : _replacedRootData.createdAtBlock
             });
+        }
     }
 
-    function _getSignHash(
+    function _getStateSignHash(
         StateData calldata stateData_,
+        uint256 prevState_
+    ) internal view returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    sourceStateContract,
+                    stateData_.id,
+                    stateData_.state,
+                    stateData_.createdAtTimestamp,
+                    stateData_.createdAtBlock,
+                    prevState_
+                )
+            );
+    }
+
+    function _getGISTSignHash(
         GistRootData calldata gistData_,
-        uint256 prevState_,
         uint256 prevGist_
     ) internal view returns (bytes32) {
         return
             keccak256(
                 abi.encodePacked(
                     sourceStateContract,
-                    _encodeStateData(stateData_),
-                    _encodeGistData(gistData_),
-                    prevState_,
+                    gistData_.root,
+                    gistData_.createdAtTimestamp,
+                    gistData_.createdAtBlock,
                     prevGist_
                 )
-            );
-    }
-
-    function _encodeStateData(StateData calldata stateData_) internal pure returns (bytes memory) {
-        return
-            abi.encodePacked(
-                stateData_.id,
-                stateData_.state,
-                stateData_.replacedByState,
-                stateData_.createdAtTimestamp,
-                stateData_.createdAtBlock
-            );
-    }
-
-    function _encodeGistData(
-        GistRootData calldata gistData_
-    ) internal pure returns (bytes memory) {
-        return
-            abi.encodePacked(
-                gistData_.root,
-                gistData_.replacedByRoot,
-                gistData_.createdAtTimestamp,
-                gistData_.createdAtBlock
             );
     }
 }
