@@ -1,36 +1,36 @@
-import { Deployer, Logger } from "@solarity/hardhat-migrate";
-import { artifacts } from "hardhat";
+import { Deployer } from "@solarity/hardhat-migrate";
 import { Config, parseConfig, isZeroAddr } from "@/deploy/helpers/config_parser";
+import { ERC1967Proxy__factory, LightweightStateV2, LightweightStateV2__factory } from "@/generated-types/ethers";
 
-const ERC1967Proxy = artifacts.require("ERC1967Proxy");
-const LightweightStateV2 = artifacts.require("LightweightStateV2");
-
-export = async (deployer: Deployer, logger: Logger) => {
+export = async (deployer: Deployer) => {
   const config: Config = parseConfig();
 
-  let lightweightStateV2;
+  let lightweightStateV2: LightweightStateV2;
 
   if (isZeroAddr(config.stateContractInfo.stateAddr)) {
-    const lightweightStateV2Impl = await deployer.deploy(LightweightStateV2);
-    const lightweightStateV2Proxy = await deployer.deploy(ERC1967Proxy, lightweightStateV2Impl.address, []);
+    const lightweightStateV2Impl = await deployer.deploy(LightweightStateV2__factory, {
+      name: "LightweightStateV2Impl",
+    });
+    const lightweightStateV2Proxy = await deployer.deploy(
+      ERC1967Proxy__factory,
+      [lightweightStateV2Impl.address, "0x"],
+      { name: "LightweightStateV2Proxy" }
+    );
 
-    lightweightStateV2 = await LightweightStateV2.at(lightweightStateV2Proxy.address);
+    lightweightStateV2 = await deployer.deployed(LightweightStateV2__factory, lightweightStateV2Proxy.address);
 
     if (config.stateContractInfo.stateInitParams) {
-      logger.logTransaction(
-        await lightweightStateV2.__LightweightStateV2_init(
-          config.stateContractInfo.stateInitParams.signer,
-          config.stateContractInfo.stateInitParams.sourceStateContract,
-          config.stateContractInfo.stateInitParams.chainName
-        ),
-        "Initialize LightweightStateV2 contract"
+      await lightweightStateV2.__LightweightStateV2_init(
+        config.stateContractInfo.stateInitParams.signer,
+        config.stateContractInfo.stateInitParams.sourceStateContract,
+        config.stateContractInfo.stateInitParams.chainName
       );
     } else {
       throw new Error("Invalid state init params");
     }
   } else {
-    lightweightStateV2 = await LightweightStateV2.at(config.stateContractInfo.stateAddr);
+    lightweightStateV2 = await deployer.deployed(LightweightStateV2__factory, config.stateContractInfo.stateAddr);
   }
 
-  await LightweightStateV2.setAsDeployed(lightweightStateV2);
+  await deployer.save(LightweightStateV2__factory, lightweightStateV2.address);
 };

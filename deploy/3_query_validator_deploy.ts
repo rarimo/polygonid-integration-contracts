@@ -1,39 +1,33 @@
-import { Deployer, Logger } from "@solarity/hardhat-migrate";
-import { artifacts } from "hardhat";
+import { Deployer } from "@solarity/hardhat-migrate";
 import { Config, parseConfig, isZeroAddr } from "@/deploy/helpers/config_parser";
 import { deployMTPValidatorOnChain, deploySigValidatorOnChain } from "@/deploy/helpers/deploy_helper";
+import {
+  CredentialAtomicQueryMTPValidator__factory,
+  CredentialAtomicQuerySigValidator__factory,
+} from "@/generated-types/ethers";
 
-const PoseidonFacade = artifacts.require("PoseidonFacade");
-const LightweightStateV2 = artifacts.require("LightweightStateV2");
-
-const CredentialAtomicQuerySigValidator = artifacts.require("CredentialAtomicQuerySigValidator");
-const CredentialAtomicQueryMTPValidator = artifacts.require("CredentialAtomicQueryMTPValidator");
-
-export = async (deployer: Deployer, logger: Logger) => {
+export = async (deployer: Deployer) => {
   const config: Config = parseConfig();
 
-  let queryValidatorAddr;
+  let queryValidatorAddr: string;
 
   if (isZeroAddr(config.validatorContractInfo.validatorAddr)) {
-    const poseidonFacade = await PoseidonFacade.deployed();
-    const stateAddr = (await LightweightStateV2.deployed()).address;
-
     if (config.validatorContractInfo.isSigValidator) {
-      queryValidatorAddr = await deploySigValidatorOnChain(deployer, logger, stateAddr);
+      queryValidatorAddr = await deploySigValidatorOnChain(deployer);
     } else {
-      queryValidatorAddr = await deployMTPValidatorOnChain(deployer, logger, stateAddr);
+      queryValidatorAddr = await deployMTPValidatorOnChain(deployer);
     }
   } else {
+    if (!config.validatorContractInfo.validatorAddr) {
+      throw new Error(`Invalid validator address - ${config.validatorContractInfo.validatorAddr}`);
+    }
+
     queryValidatorAddr = config.validatorContractInfo.validatorAddr;
   }
 
   if (config.validatorContractInfo.isSigValidator) {
-    const querySigValidator = await CredentialAtomicQuerySigValidator.at(queryValidatorAddr);
-
-    await CredentialAtomicQuerySigValidator.setAsDeployed(querySigValidator);
+    await deployer.save(CredentialAtomicQuerySigValidator__factory, queryValidatorAddr);
   } else {
-    const queryMTPValidator = await CredentialAtomicQueryMTPValidator.at(queryValidatorAddr);
-
-    await CredentialAtomicQueryMTPValidator.setAsDeployed(queryMTPValidator);
+    await deployer.save(CredentialAtomicQueryMTPValidator__factory, queryValidatorAddr);
   }
 };
