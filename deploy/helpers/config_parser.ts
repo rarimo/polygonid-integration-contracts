@@ -4,6 +4,7 @@ import { ZERO_ADDR } from "@/scripts/utils/constants";
 export type Config = {
   validatorContractInfo: ValidatorContractInfo;
   stateContractInfo: StateContractInfo;
+  verifiedSBTInfo: VerifiedSBTInfo;
   poseidonFacade?: string;
 };
 
@@ -15,6 +16,12 @@ export type ValidatorContractInfo = {
 export type StateContractInfo = {
   stateAddr?: string;
   stateInitParams?: StateInitParams;
+};
+
+export type VerifiedSBTInfo = {
+  name: string;
+  symbol: string;
+  tokenURI: string;
 };
 
 export type StateInitParams = {
@@ -32,6 +39,10 @@ export function parseConfig(configPath: string = "deploy/data/config.json"): Con
 
   if (config.stateContractInfo.stateInitParams != undefined) {
     validateStateInitParams(config.stateContractInfo.stateInitParams);
+  }
+
+  if (!config.verifiedSBTInfo) {
+    throw new Error(`Invalid verifiedSBTInfo config section.`);
   }
 
   config.validatorContractInfo.isSigValidator = config.validatorContractInfo.isSigValidator == "true";

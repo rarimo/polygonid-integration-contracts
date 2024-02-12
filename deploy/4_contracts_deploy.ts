@@ -1,54 +1,62 @@
-import { Deployer, Logger } from "@solarity/hardhat-migrate";
-import { artifacts } from "hardhat";
-
+import { Deployer, Reporter } from "@solarity/hardhat-migrate";
 import { Config, parseConfig } from "@/deploy/helpers/config_parser";
+import {
+  CredentialAtomicQueryMTPValidator__factory,
+  CredentialAtomicQuerySigValidator__factory,
+  ERC1967Proxy__factory,
+  LightweightStateV2__factory,
+  PoseidonFacade__factory,
+  QueryVerifier__factory,
+  VerifiedSBT__factory,
+} from "@/generated-types/ethers";
 
-const VerifiedSBT = artifacts.require("VerifiedSBT");
-const QueryVerifier = artifacts.require("QueryVerifier");
-const PoseidonFacade = artifacts.require("PoseidonFacade");
-const LightweightStateV2 = artifacts.require("LightweightStateV2");
-const ERC1967Proxy = artifacts.require("ERC1967Proxy");
-
-const CredentialAtomicQuerySigValidator = artifacts.require("CredentialAtomicQuerySigValidator");
-const CredentialAtomicQueryMTPValidator = artifacts.require("CredentialAtomicQueryMTPValidator");
-
-export = async (deployer: Deployer, logger: Logger) => {
+export = async (deployer: Deployer) => {
   const config: Config = parseConfig();
 
-  const poseidonFacade = await PoseidonFacade.deployed();
-  await deployer.link(poseidonFacade, QueryVerifier);
+  const verifiedSBTImpl = await deployer.deploy(VerifiedSBT__factory, { name: "VerifiedSBTImpl" });
+  const verifiedSBTProxy = await deployer.deploy(ERC1967Proxy__factory, [verifiedSBTImpl.address, "0x"], {
+    name: "VerifiedSBTProxy",
+  });
 
-  const verifiedSBTImpl = await deployer.deploy(VerifiedSBT);
-  const verifiedSBTProxy = await deployer.deploy(ERC1967Proxy, verifiedSBTImpl.address, []);
+  const verifiedSBT = await deployer.deployed(VerifiedSBT__factory, verifiedSBTProxy.address);
 
-  const verifiedSBT = await VerifiedSBT.at(verifiedSBTProxy.address);
-  await VerifiedSBT.setAsDeployed(verifiedSBT);
+  await deployer.save(VerifiedSBT__factory, verifiedSBTProxy.address);
 
-  const queryVerifier = await deployer.deploy(QueryVerifier);
+  const queryVerifier = await deployer.deploy(QueryVerifier__factory);
 
-  logger.logTransaction(
-    await queryVerifier.setSBTContract(verifiedSBT.address),
-    "Set VerifiedSBT contract address in the QueryVerifier contract"
+  await queryVerifier.setSBTContract(verifiedSBT.address);
+  await verifiedSBT.__VerifiedSBT_init(
+    queryVerifier.address,
+    config.verifiedSBTInfo.name,
+    config.verifiedSBTInfo.symbol,
+    config.verifiedSBTInfo.tokenURI
   );
 
-  logger.logTransaction(
-    await verifiedSBT.__VerifiedSBT_init(queryVerifier.address, "Polygon ID × Rarimo", "PRA", ""),
-    "Initialize VerifiedSBT contract"
-  );
+  console.log(`Initialize VerifiedSBT contract with next params:
+    NAME: ${config.verifiedSBTInfo.name}
+    SYMBOL: ${config.verifiedSBTInfo.symbol}
+    TOKEN_URI: ${config.verifiedSBTInfo.tokenURI}
+  `);
 
-  let validatorsInfo;
+  let validatorsInfo: [string, string];
 
   if (config.validatorContractInfo.isSigValidator) {
-    validatorsInfo = ["QuerySigValidatorOnChain", (await CredentialAtomicQuerySigValidator.deployed()).address];
+    validatorsInfo = [
+      "QuerySigValidatorOnChain",
+      (await deployer.deployed(CredentialAtomicQuerySigValidator__factory)).address,
+    ];
   } else {
-    validatorsInfo = ["QueryMTPValidatorOnChain", (await CredentialAtomicQueryMTPValidator.deployed()).address];
+    validatorsInfo = [
+      "QueryMTPValidatorOnChain",
+      (await deployer.deployed(CredentialAtomicQueryMTPValidator__factory)).address,
+    ];
   }
 
-  logger.logContracts(
-    ["LightweightStateV2", (await LightweightStateV2.deployed()).address],
+  Reporter.reportContracts(
+    ["LightweightStateV2", (await deployer.deployed(LightweightStateV2__factory)).address],
     validatorsInfo,
     ["VerifiedSBT", verifiedSBT.address],
     ["QueryVerifier", queryVerifier.address],
-    ["PoseidonFacade", poseidonFacade.address]
+    ["PoseidonFacade", (await deployer.deployed(PoseidonFacade__factory)).address]
   );
 };

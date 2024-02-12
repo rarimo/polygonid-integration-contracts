@@ -26,7 +26,7 @@ The config has the following structure:
 {
   "validatorContractInfo": {
     "validatorAddr": "",
-    "isSigValidator": "true"
+    "isSigValidator": "false"
   },
   "stateContractInfo": {
     "stateAddr": "0x134B1...07a4",
@@ -36,8 +36,14 @@ The config has the following structure:
       "chainName": "Sepolia"
     }
   },
-  "poseidonFacade": "0x1702a...1AF5"
+  "verifiedSBTInfo": {
+    "name": "Polygon ID × Rarimo",
+    "symbol": "PRA",
+    "tokenURI": "some URI"
+  },
+  "poseidonFacade": ""
 }
+
 ```
 
 To deploy new contracts it is enough to leave the fields with addresses empty while filling in the fields with init values.
@@ -51,7 +57,7 @@ To deploy the contracts locally, run the following commands (in the different te
 
 ```bash
 npm run private-network
-npm run deploy-local
+npm run deploy-localhost
 ```
 
 #### Bindings

@@ -1,7 +1,7 @@
 {
   "validatorContractInfo": {
     "validatorAddr": "",
-    "isSigValidator": "true"
+    "isSigValidator": "false"
   },
   "stateContractInfo": {
     "stateAddr": "0x134B1...07a4",
@@ -11,5 +11,10 @@
       "chainName": "Sepolia"
     }
   },
-  "poseidonFacade": "0x1702a...1AF5"
+  "verifiedSBTInfo": {
+    "name": "Polygon ID × Rarimo",
+    "symbol": "PRA",
+    "tokenURI": "some URI"
+  },
+  "poseidonFacade": ""
 }

@@ -1,11 +1,14 @@
-import { Deployer, Logger } from "@solarity/hardhat-migrate";
-import { artifacts, ethers } from "hardhat";
+import { Deployer } from "@solarity/hardhat-migrate";
+import { ethers } from "hardhat";
 import { Config, parseConfig } from "@/deploy/helpers/config_parser";
 import { AGE_VERIFY_REQUEST_ID } from "@/test/helpers/constants";
-
-const QueryVerifier = artifacts.require("QueryVerifier");
-const CredentialAtomicQuerySigValidator = artifacts.require("CredentialAtomicQuerySigValidator");
-const CredentialAtomicQueryMTPValidator = artifacts.require("CredentialAtomicQueryMTPValidator");
+import {
+  CredentialAtomicQueryMTPValidator,
+  CredentialAtomicQueryMTPValidator__factory,
+  CredentialAtomicQuerySigValidator,
+  CredentialAtomicQuerySigValidator__factory,
+  QueryVerifier__factory,
+} from "@/generated-types/ethers";
 
 const Operators = {
   NOOP: 0, // No operation, skip query verification in circuit
@@ -17,15 +20,15 @@ const Operators = {
   NE: 6, // not equal
 };
 
-export = async (deployer: Deployer, logger: Logger) => {
+export = async (deployer: Deployer) => {
   const config: Config = parseConfig();
 
-  let validator;
+  let validator: CredentialAtomicQueryMTPValidator | CredentialAtomicQuerySigValidator;
 
   if (config.validatorContractInfo.isSigValidator) {
-    validator = await CredentialAtomicQuerySigValidator.deployed();
+    validator = await deployer.deployed(CredentialAtomicQuerySigValidator__factory);
   } else {
-    validator = await CredentialAtomicQueryMTPValidator.deployed();
+    validator = await deployer.deployed(CredentialAtomicQueryMTPValidator__factory);
   }
 
   const circuitId = await validator.getCircuitId();
@@ -40,17 +43,14 @@ export = async (deployer: Deployer, logger: Logger) => {
     circuitId,
   };
 
-  const queryVerifier = await QueryVerifier.deployed();
+  const queryVerifier = await deployer.deployed(QueryVerifier__factory);
 
-  logger.logTransaction(
-    await queryVerifier.setZKPRequest(
-      AGE_VERIFY_REQUEST_ID,
-      validator.address,
-      query.schema,
-      query.claimPathKey,
-      query.operator,
-      query.value
-    ),
-    "ZKP Request for KYC Age Credential is set"
+  await queryVerifier.setZKPRequest(
+    AGE_VERIFY_REQUEST_ID,
+    validator.address,
+    query.schema.toBigInt(),
+    query.claimPathKey.toBigInt(),
+    query.operator,
+    query.value
   );
 };
